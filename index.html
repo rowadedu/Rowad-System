@@ -361,16 +361,55 @@ function vUsers(){
 }
 const errTxt=e=>({'auth/invalid-credential':'البريد أو كلمة المرور غير صحيحة','auth/invalid-email':'البريد غير صالح','auth/email-already-in-use':'هذا البريد مسجّل مسبقًا','auth/weak-password':'كلمة المرور ضعيفة (٦ أحرف على الأقل)','auth/missing-password':'اكتب كلمة المرور','auth/unauthorized-domain':'النطاق غير مضاف في Firebase Authorized domains','PERMISSION_DENIED':'لا تملك صلاحية'}[e.code]||e.message||'حدث خطأ');
 function showMsg(m,out){$('login').style.display='flex';$('lform').style.display='none';$('lmsg').textContent=m;$('bOut2').hidden=!out}
+
 async function afterAuth(u){
   const {D,db}=FB,ref=D.ref(db,'rowad/users/'+u.uid);
-  try{let rec=(await D.get(ref)).val();
-    if(!rec){rec={name:(u.email||'').split('@')[0],email:u.email,role:'pending',ts:Date.now()};await D.set(ref,rec)}
+  try{
+    let rec=(await D.get(ref)).val();
+
+    if(!rec){
+      rec={
+        name:(u.email||'').split('@')[0],
+        email:u.email,
+        role:'pending',
+        ts:Date.now()
+      };
+      await D.set(ref,rec);
+    }
+
     ME={uid:u.uid,email:u.email,name:rec.name};
-    if(rec.role==='head'||rec.role==='member'){ROLE=rec.role;startSync()}
-    else{showMsg(rec.role==='blocked'?'تم إيقاف هذا الحساب. تواصل مع الإدارة.':'تم إنشاء حسابك ✓ وهو بانتظار اعتماد رئيس اللجنة. سيُفتح تلقائيًا بعد الاعتماد.',true);
-      D.onValue(ref,s=>{const x=s.val();if(x&&(x.role==='head'||x.role==='member'))location.reload()})}
-  }catch(e){showMsg('تعذّر قراءة الحساب: '+errTxt(e)+'. تأكد من نشر قواعد الأمان.',true)}
+
+    // فحص بيانات الحساب والصلاحية
+    console.log("Firebase user:",u.uid);
+    console.log("Database role:",rec.role);
+
+    if(rec.role==='head'||rec.role==='member'){
+      ROLE=rec.role;
+      startSync();
+    }else{
+      showMsg(
+        rec.role==='blocked'
+          ?'تم إيقاف هذا الحساب. تواصل مع الإدارة.'
+          :'تم إنشاء حسابك ✓ وهو بانتظار اعتماد رئيس اللجنة. سيُفتح تلقائيًا بعد الاعتماد.',
+        true
+      );
+
+      D.onValue(ref,s=>{
+        const x=s.val();
+        if(x&&(x.role==='head'||x.role==='member')){
+          location.reload();
+        }
+      });
+    }
+  }catch(e){
+    showMsg(
+      'تعذّر قراءة الحساب: '+errTxt(e)+
+      '. تأكد من نشر قواعد الأمان.',
+      true
+    );
+  }
 }
+
 function startSync(){
   const {D,db}=FB,R=p=>D.ref(db,'rowad/'+p);let f1=0,f2=0;
   $('login').style.display='none';$('who').textContent=ME.name+' · '+(ROLE==='head'?'رئيس':'عضو');$('bOut').hidden=false;
